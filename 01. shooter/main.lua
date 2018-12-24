@@ -2,6 +2,8 @@ io.stdout:setvbuf('no')
 love.graphics.setDefaultFilter("nearest")
 if arg[#arg] == "-debug" then require("mobdebug").start() end
 
+function math.angle(x1, y1, x2, y2) return math.atan2(y2 - y1, x2 - x1) end
+
 ship = {}
 -- Liste d'éléments
 listSprites = {}
@@ -39,7 +41,7 @@ table.insert(level, {0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 
 camera = {}
 camera.posY = 0
-camera.speed = 1
+camera.speed = 50
 
 -- chargement des tiles de décor
 imgTiles = {}
@@ -66,8 +68,10 @@ function addEnemy(pType, pX ,pY)
   end
 
   local enemy = addSprite(filename, pX, pY)
-  
+
   enemy.sleep = true
+  enemy.time = 0
+  enemy.type = pType
 
   if pType == 1 then
     enemy.velY = 200
@@ -101,6 +105,17 @@ function addSprite(pFileName, pX, pY)
   return sprite
 end
 
+-- SHOOTS
+
+function addShoot(pType, pFilename, pX, pY, pSpeedX, pSpeedY)
+  local shoot = addSprite(pFilename, pX, pY)
+  shoot.type = pType
+  shoot.velX = pSpeedX
+  shoot.velY = pSpeedY
+  table.insert(listShoots, shoot)
+  love.audio.play(sfxShoot)
+end
+
 ----------
 -- LOAD --
 ----------
@@ -128,6 +143,9 @@ function startGame()
   col = 9
   row = 10
   addEnemy(2, col * 64, -(row * 64) - 32)
+  col = 13
+  row = 11
+  addEnemy(3, col * 64, -(row * 64) - 32)
 
   camera.posY = 0
 end
@@ -139,15 +157,26 @@ end
 function love.update(dt)
 
 -- gestion de la caméra
-  camera.posY = camera.posY + camera.speed
+  camera.posY = camera.posY + camera.speed * dt
 
 -- gestion des tirs
   local i
   for i = #listShoots, 1, -1 do
     local shoot = listShoots[i]
+
+--  -- déplacement des tirs
+    shoot.posX = shoot.posX + shoot.velX * dt
     shoot.posY = shoot.posY + shoot.velY * dt
+
+    if shoot.type = "enemy" then
+      if collide(ship, shoot) then
+        shoot.delete
+        table.remove(listShoots, i)
+      end
+    end
+
 -- -- supprimer les shoots hors de l'écran
-    if shoot.posY < 0 or shoot.posY > height then
+    if shoot.posY < 0 or shoot.posY > height or shoot.posX < 0 or shoot.posY > width then
       shoot.delete = true
       table.remove(listShoots, i)
     end
@@ -156,12 +185,41 @@ function love.update(dt)
   -- gestion des ennemis
   for i=#listEnemies, 1, -1 do
     local enemy = listEnemies[i]
+
+    -- activer l'ennemi s'il apparaît à lécran
     if enemy.posY > 0 then enemy.sleep = false end
+
+    -- si l'ennemi apparaît à l'écran
     if enemy.sleep == false then
       enemy.posX = enemy.posX + enemy.velX * dt
       enemy.posY = enemy.posY + enemy.velY * dt
+      enemy.time = enemy.time + 1
+
+      if enemy.type == 1 or enemy.type == 2 then
+        if enemy.time >= 40 then
+          local velX, velY
+          velX = 0
+          velY = 400
+          enemy.time = 0
+          addShoot("enemy", "shoot2", enemy.posX, enemy.posY, velX, velY)
+        end
+
+      end
+
+      if enemy.type == 3 then
+        if enemy.time >= 30 then
+          enemy.time = 0
+          local velX, velY
+          local angle
+          angle = math.angle(enemy.posX, enemy.posY, ship.posX, ship.posY)
+          velX = 300 * math.cos(angle)
+          velY = 300 * math.sin(angle)
+          addShoot("enemy", "shoot2", enemy.posX, enemy.posY, velX, velY)
+        end
+      end
+
     else
-      enemy.posY = enemy.posY + camera.speed 
+      enemy.posY = enemy.posY + camera.speed *dt
     end
 
     if enemy.posY > height then 
@@ -225,10 +283,16 @@ end
 
 function love.keypressed(key)
   if key == "space" then
-    local shoot = addSprite("shoot", ship.posX, ship.posY - (ship.height * 2) / 2)
-    shoot.velY = -500
-    table.insert(listShoots, shoot)
-    love.audio.play(sfxShoot)
+    addShoot("ship", "shoot", ship.posX, ship.posY - ship.height, 0, -500)
   end
+end
 
+
+-- COLLISION
+
+function collide(pSprite1, pSprite2)
+  if pSprite1 == pSprite2 then return false end
+  local distX = pSprite1.posX - pSprite2.posX
+  local distY = pSprite1.posY - pSprite2.posY
+  if math.abs(distX) < 
 end
