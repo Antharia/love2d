@@ -105,7 +105,7 @@ function addEnemy(pType, pX ,pY)
   elseif pType == 10 then
     enemy.velX = 0
     enemy.velY = camera.speed * 0.5 -- arrive deux fois moins vite que les autres
-    enemy.hp = 20
+    enemy.hp = 40
     enemy.angle = 0
   end
 
@@ -225,9 +225,15 @@ function love.update(dt)
             enemy.hp = enemy.hp - 1
             love.audio.play(sfxHit)
             if enemy.hp <= 0 then
-              local iExplosion
-              for iExplosion = 1, 5 do
-                addExplosion(enemy.posX + math.random(-10, 10), enemy.posY + math.random(-10, 10))
+              if enemy.type == 10 then
+                local iExplosion
+                for iExplosion = 1, 10 do
+                  addExplosion(enemy.posX + math.random(-128, 128), enemy.posY + math.random(-64, 64))
+                end
+              else
+                for iExplosion = 1, 2 do
+                  addExplosion(enemy.posX + math.random(-20, 20), enemy.posY + math.random(-20, 20))
+                end
               end
               love.audio.play(sfxExplosion)
               enemy.delete = true
@@ -253,7 +259,7 @@ function love.update(dt)
       local enemy = listEnemies[i]
 
       -- activer l'ennemi s'il apparaît à lécran
-      if enemy.posY > 0 then enemy.sleep = false end
+      if enemy.posY + enemy.height > 0 then enemy.sleep = false end
 
       -- si l'ennemi apparaît à l'écran
       if enemy.sleep == false then
@@ -285,18 +291,21 @@ function love.update(dt)
         end
         -- boss de fin de niveau
         if enemy.type == 10 then
-          if enemy.posY > height / 3 then enemy.posY = height / 3 end
-          if enemy.time >= 10 then
-            enemy.time = 0
-            local velX, velY
-            local iBossShoots
-            for iBossShoots = 1, 5 do
-              enemy.angle = enemy.angle + 0.2 * iBossShoots
-              velX = 300 * math.cos(enemy.angle)
-              velY = 300 * math.sin(enemy.angle)
-              addShoot("enemy", "shoot2", enemy.posX, enemy.posY, velX, velY)
+          if enemy.posY > height / 4 then 
+            enemy.posY = height / 4 
+            if enemy.time >= 8 then
+              enemy.time = 0
+              local velX, velY
+              local iBossShoots
+              for iBossShoots = 1, 5 do
+                enemy.angle = enemy.angle + 0.2 * iBossShoots
+                velX = 150 * math.cos(enemy.angle)
+                velY = 150 * math.sin(enemy.angle)
+                addShoot("enemy", "shoot2", enemy.posX, enemy.posY, velX, velY)
+              end
             end
           end
+
         end
 
 
