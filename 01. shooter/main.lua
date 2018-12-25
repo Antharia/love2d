@@ -54,6 +54,13 @@ for i = 1, 2 do
   imgTiles[i] = love.graphics.newImage("images/tile"..i..".png")
 end
 
+-- chargement de l'animation d'explosion
+imgExplosion = {}
+for i = 1, 6 do
+  imgExplosion[i] = love.graphics.newImage("images/explosion"..i..".png")
+end
+
+
 -- son du tir
 sfxShoot = love.audio.newSource("sounds/shoot.wav", "static")
 sfxExplosion = love.audio.newSource("sounds/explosion1.wav", "static")
@@ -71,6 +78,8 @@ function addEnemy(pType, pX ,pY)
     filename = "enemy2"
   elseif pType == 3 then
     filename = "enemy3"
+  elseif pType == 10 then
+    filename = "boss"
   end
 
   local enemy = addSprite(filename, pX, pY)
@@ -93,6 +102,11 @@ function addEnemy(pType, pX ,pY)
     enemy.velX = 0
     enemy.velY = camera.speed 
     enemy.hp = 5
+  elseif pType == 10 then
+    enemy.velX = 0
+    enemy.velY = camera.speed * 0.5 -- arrive deux fois moins vite que les autres
+    enemy.hp = 20
+    enemy.angle = 0
   end
 
   table.insert(listEnemies, enemy)
@@ -108,11 +122,21 @@ function addSprite(pFileName, pX, pY)
   sprite.image = love.graphics.newImage("images/"..pFileName..".png")
   sprite.width = sprite.image:getWidth()
   sprite.height = sprite.image:getHeight()
+  sprite.frame = 1
+  sprite.listFrames = {}
+  sprite.maxFrames = 1
 
   table.insert(listSprites, sprite)
 
   return sprite
 end
+
+function addExplosion(pX, pY)
+  local explosion = addSprite("explosion1", pX, pY)
+  explosion.listFrames = imgExplosion
+  explosion.maxFrames = 6
+end
+
 
 -- SHOOTS
 
@@ -155,6 +179,9 @@ function startGame()
   col = 13
   row = 11
   addEnemy(3, col * 64, -(row * 64) - 32)
+  col = 8
+  row = 16
+  addEnemy(10, col * 64, -(row * 64) - 32)
 
   camera.posY = 0
 end
@@ -185,19 +212,23 @@ function love.update(dt)
           shoot.delete = true
           table.remove(listShoots, iShoot)
           currentScreen = "gameover"
-          startGame()
         end
       end
-
+      -- entre un tir du vaisseau et un ennemi
       if shoot.type == "ship" then
         for iEnemy = #listEnemies, 1, -1 do
           local enemy = listEnemies[iEnemy]
           if collide(shoot, enemy) then
+            addExplosion(enemy.posX, enemy.posY)
             shoot.delete = true
             table.remove(listShoots, iShoot)
             enemy.hp = enemy.hp - 1
             love.audio.play(sfxHit)
             if enemy.hp <= 0 then
+              local iExplosion
+              for iExplosion = 1, 5 do
+                addExplosion(enemy.posX + math.random(-10, 10), enemy.posY + math.random(-10, 10))
+              end
               love.audio.play(sfxExplosion)
               enemy.delete = true
               table.remove(listEnemies, iEnemy)
@@ -252,6 +283,22 @@ function love.update(dt)
             addShoot("enemy", "shoot2", enemy.posX, enemy.posY, velX, velY)
           end
         end
+        -- boss de fin de niveau
+        if enemy.type == 10 then
+          if enemy.posY > height / 3 then enemy.posY = height / 3 end
+          if enemy.time >= 10 then
+            enemy.time = 0
+            local velX, velY
+            local iBossShoots
+            for iBossShoots = 1, 5 do
+              enemy.angle = enemy.angle + 0.2 * iBossShoots
+              velX = 300 * math.cos(enemy.angle)
+              velY = 300 * math.sin(enemy.angle)
+              addShoot("enemy", "shoot2", enemy.posX, enemy.posY, velX, velY)
+            end
+          end
+        end
+
 
       else
         enemy.posY = enemy.posY + camera.speed *dt
@@ -263,9 +310,19 @@ function love.update(dt)
       end
     end
 
--- suppression des sprites
+-- traitement et suppression des sprites
     for i = #listSprites, 1, -1 do
-      if listSprites[i].delete == true then
+      local sprite = listSprites[i]
+      -- sprite animé
+      if sprite.maxFrames > 1 then
+        sprite.frame = sprite.frame + 0.2
+        if math.floor(sprite.frame) > sprite.maxFrames then
+          sprite.delete = true
+        else
+          sprite.image = sprite.listFrames[math.floor(sprite.frame)]
+        end
+      end
+      if sprite.delete == true then
         table.remove(listSprites, i )
       end
     end
@@ -328,8 +385,11 @@ function love.keypressed(key)
     if key == "space" then
       addShoot("ship", "shoot", ship.posX, ship.posY - ship.height, 0, -500)
     end
-  elseif currentScreen =="menu" or currentScreen == "gameover" then
+  elseif currentScreen =="menu" then
     currentScreen = "game"
+  elseif currentScreen == "gameover" then
+    currentScreen = "menu"
+    startGame()
   end
 end
 
