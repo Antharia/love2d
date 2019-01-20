@@ -1,0 +1,2 @@
+--sfxExplosion = love.audio.newSource("sound/explosion.wav", "static")
+--bgm = love.audio.newSource("sound/bgm.wav", "stream")
